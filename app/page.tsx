@@ -1,6 +1,13 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  await cookies();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const zaloUrl = process.env.NEXT_PUBLIC_ZALO_URL || "https://zalo.me/";
 
   return (
@@ -17,7 +24,11 @@ export default function HomePage() {
             <a href={zaloUrl} className="btn" target="_blank" rel="noreferrer">
               Register trial class via Zalo
             </a>
-            <Link href="/login" className="btn secondary">Login</Link>
+            {user ? (
+              <Link href="/dashboard" className="btn secondary">Dashboard</Link>
+            ) : (
+              <Link href="/login" className="btn secondary">Login</Link>
+            )}
           </div>
         </div>
 

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { formatDateTime, formatTimeRange, nowIso } from "@/lib/time";
-import { inviteUser, setUserActive, updateMembership, updateUserRole } from "@/app/actions/admin";
+import { createUserByAdmin, inviteUser, setUserActive, updateMembership, updateUserContact, updateUserRole } from "@/app/actions/admin";
 
 type AnyRow = Record<string, any>;
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage(props: { searchParams?: Promise<Record<string, string>> }) {
+  const searchParams = props.searchParams ? await props.searchParams : {};
   const { supabase } = await requireRole(["admin"]);
 
   const [{ data: profiles }, { data: memberships }, { data: slots }, { data: history }] = await Promise.all([
@@ -31,16 +32,21 @@ export default async function AdminDashboardPage() {
         <div>
           <h1>Admin dashboard</h1>
           <p className="muted">Manage users, session balance, class schedule, and attendance history.</p>
+          {searchParams?.created === "1" ? <p className="success">User created. Share the email and initial password with them, then ask them to change password later.</p> : null}
+          {searchParams?.invited === "1" ? <p className="success">Invite email sent.</p> : null}
         </div>
         <Link className="btn secondary" href="/logout">Logout</Link>
       </div>
 
       <div className="grid two">
         <section className="card">
-          <h2>Invite user</h2>
-          <form className="form" action={inviteUser}>
+          <h2>Create user</h2>
+          <p className="muted">Default MVP flow: create the account directly, no Supabase email is sent, so it avoids email rate limits.</p>
+          <form className="form" action={createUserByAdmin}>
             <label>Full name<input name="full_name" required /></label>
             <label>Email<input name="email" type="email" required /></label>
+            <label>Phone<input name="phone" type="tel" required placeholder="0901234567" /></label>
+            <label>Initial password<input name="password" type="text" required minLength={8} placeholder="At least 8 characters" /></label>
             <label>
               Role
               <select name="role" defaultValue="student">
@@ -49,8 +55,26 @@ export default async function AdminDashboardPage() {
                 <option value="admin">Admin</option>
               </select>
             </label>
-            <button className="btn" type="submit">Send invite</button>
+            <button className="btn" type="submit">Create user</button>
           </form>
+
+          <details style={{ marginTop: 16 }}>
+            <summary className="muted">Optional: send Supabase invite email instead</summary>
+            <form className="form" action={inviteUser} style={{ marginTop: 12 }}>
+              <label>Full name<input name="full_name" required /></label>
+              <label>Email<input name="email" type="email" required /></label>
+              <label>Phone<input name="phone" type="tel" required placeholder="0901234567" /></label>
+              <label>
+                Role
+                <select name="role" defaultValue="student">
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <button className="btn secondary" type="submit">Send invite email</button>
+            </form>
+          </details>
         </section>
 
         <section className="card">
@@ -68,12 +92,20 @@ export default async function AdminDashboardPage() {
         <h2>Users and roles</h2>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
               {(profiles || []).map((p: AnyRow) => (
                 <tr key={p.id}>
-                  <td>{p.full_name || "-"}</td>
+                  <td>
+                    <form className="form" action={updateUserContact}>
+                      <input type="hidden" name="id" value={p.id} />
+                      <input name="full_name" defaultValue={p.full_name || ""} required />
+                      <input name="phone" type="tel" defaultValue={p.phone || ""} required placeholder="Phone" />
+                      <button className="btn small secondary">Save contact</button>
+                    </form>
+                  </td>
                   <td>{p.email}</td>
+                  <td>{p.phone || "-"}</td>
                   <td><span className="badge">{p.role}</span></td>
                   <td>{p.active ? <span className="badge green">active</span> : <span className="badge red">inactive</span>}</td>
                   <td className="inline">
@@ -109,7 +141,7 @@ export default async function AdminDashboardPage() {
                 const member = (memberships || []).find((m: AnyRow) => m.student_id === student.id) || {};
                 return (
                   <tr key={student.id}>
-                    <td>{student.full_name}<br /><span className="muted">{student.email}</span></td>
+                    <td>{student.full_name}<br /><span className="muted">{student.email}</span><br /><span className="muted">{student.phone || "No phone"}</span></td>
                     <td colSpan={5}>
                       <form className="form" action={updateMembership}>
                         <input type="hidden" name="student_id" value={student.id} />

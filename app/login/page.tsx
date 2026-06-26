@@ -1,6 +1,16 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import { signIn } from "@/app/actions/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function LoginPage(props: { searchParams?: Promise<Record<string, string>> }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) redirect("/dashboard");
+
   const searchParams = props.searchParams ? await props.searchParams : {};
   const error = searchParams?.error;
 
@@ -22,6 +32,9 @@ export default async function LoginPage(props: { searchParams?: Promise<Record<s
             </label>
             <button className="btn" type="submit">Login</button>
           </form>
+          <p className="muted" style={{ marginTop: 12 }}>
+            <Link href="/forgot-password">Forgot password?</Link>
+          </p>
         </section>
         <section className="card">
           <h2>No public sign up</h2>

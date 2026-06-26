@@ -136,16 +136,18 @@ begin
     desired_role := (new.raw_user_meta_data ->> 'role')::public.user_role;
   end if;
 
-  insert into public.profiles (id, email, full_name, role)
+  insert into public.profiles (id, email, full_name, phone, role)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data ->> 'full_name', split_part(new.email, '@', 1)),
+    nullif(new.raw_user_meta_data ->> 'phone', ''),
     desired_role
   )
   on conflict (id) do update set
     email = excluded.email,
-    full_name = coalesce(public.profiles.full_name, excluded.full_name);
+    full_name = coalesce(public.profiles.full_name, excluded.full_name),
+    phone = coalesce(public.profiles.phone, excluded.phone);
 
   if desired_role = 'student' then
     insert into public.student_memberships (student_id, total_sessions, remaining_sessions)
