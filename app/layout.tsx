@@ -7,12 +7,11 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Pilates Studio Booking",
-  description: "Simple Pilates class booking MVP",
+  title: "Đặt lịch Pilates",
+  description: "MVP đặt lịch tập cho phòng Pilates",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Force this layout to be rendered per-request so the nav reflects login/logout immediately.
   await cookies();
 
   const supabase = await createClient();
@@ -28,11 +27,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="nav-links">
             {user ? (
               <>
-                <Link href="/dashboard" className="btn small secondary">Dashboard</Link>
-                <Link href="/logout" className="btn small secondary">Logout</Link>
+                <Link href="/dashboard" className="btn small secondary">Bảng điều khiển</Link>
+                <Link href="/logout" className="btn small secondary">Đăng xuất</Link>
               </>
             ) : (
-              <Link href="/login" className="btn small secondary">Login</Link>
+              <Link href="/login" className="btn small secondary">Đăng nhập</Link>
             )}
           </div>
         </nav>

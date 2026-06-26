@@ -1,81 +1,57 @@
-# Huong dan nhanh - Pilates MVP
+# Hướng dẫn nhanh - Pilates MVP
 
-Day la ban code MVP cho website dat lich phong tap Pilates.
+Đây là bản MVP cho website đặt lịch phòng tập Pilates.
 
-## Da co trong ban nay
+## Bản này đã sửa các góp ý mới
 
-1. Trang chu
-- Ten studio
-- Anh placeholder
-- Nut dang ky tap thu dan sang Zalo
-- Nut login
+1. Toàn bộ giao diện người dùng đã chuyển sang tiếng Việt.
+2. Học viên sau khi đặt lớp sẽ chỉ thấy lịch đã đặt và nút hủy lịch. Không còn dropdown chọn slot gây khó hiểu.
+3. Học viên chỉ đặt được lớp trong tuần hiện tại, tính từ thứ 2 đến chủ nhật.
+4. Giáo viên không thể điểm danh khi chưa đến giờ học.
+5. Nếu điểm danh nhầm, giáo viên hoặc admin có thể sửa lại điểm danh sau khi buổi học đã bắt đầu.
+6. Dashboard có Supabase Realtime để tự cập nhật lịch/lượt đặt, kèm fallback refresh mỗi 30 giây.
 
-2. Dang nhap
-- Email + password bang Supabase Auth
-- Khong co public sign up
-- Admin tao tai khoan cho giao vien va hoc vien
+## Cách chạy lần đầu
 
-3. Phan quyen
-- admin
-- teacher
-- student
+1. Tạo Supabase project.
+2. Vào SQL Editor, paste toàn bộ file `db/schema.sql` và Run.
+3. Copy `.env.example` thành `.env.local` rồi điền key Supabase.
+4. Tạo admin đầu tiên trong Supabase Auth > Users.
+5. Chạy SQL để gán quyền admin:
 
-4. Admin
-- Moi user bang email
-- Gan role
-- Bat/tat active user
-- Cap nhat tong so buoi va so buoi con lai cho hoc vien
-- Xem lich lop
-- Xem lich su booking/diem danh
+```sql
+insert into public.profiles (id, email, full_name, role, active)
+select id, email, 'Studio Admin', 'admin', true
+from auth.users
+where email = 'email-admin-cua-ban@example.com'
+on conflict (id)
+do update set
+  role = 'admin',
+  full_name = 'Studio Admin',
+  active = true;
+```
 
-5. Giao vien
-- Tao khung gio bat ky, vi du 18:15 - 19:15
-- Tuy chinh suc chua lop
-- Xem hoc vien da dat
-- Huy lop
-- Diem danh completed/absent
+6. Chạy app:
 
-6. Hoc vien
-- Xem lop con cho
-- Dat lich
-- Huy lich
-- Doi lich sang khung gio khac
-- Xem lich su tap
-- Xem so buoi con lai
-
-## Quy tac booking
-
-- Dat lich tru 1 buoi ngay lap tuc.
-- Huy truoc han cho phep se hoan lai 1 buoi.
-- Huy qua sat gio thi khong hoan buoi.
-- Doi lich chi cho phep truoc han cho phep va khong tru them buoi.
-- Giao vien/admin huy lop thi hoan buoi cho tat ca hoc vien.
-- Hoc vien khong duoc dat 2 lop trung gio.
-- Lop khong duoc vuot qua suc chua.
-
-Mac dinh han huy/doi lich la 6 tieng truoc gio hoc. Co the sua trong bang studio_settings.
-
-## Cach chay
-
-1. Tao Supabase project.
-2. Vao SQL Editor, paste toan bo file db/schema.sql va run.
-3. Copy .env.example thanh .env.local va dien key.
-4. Tao admin dau tien trong Supabase Auth > Users.
-5. Chay SQL:
-
-update public.profiles
-set role = 'admin', full_name = 'Studio Admin'
-where email = 'email-admin-cua-ban@example.com';
-
-6. Chay lenh:
-
+```bash
 npm install
 npm run dev
+```
 
-Mo http://localhost:3000
+Mở `http://localhost:3000`.
 
-## Luu y
+## Nếu đang dùng database từ bản cũ
 
-- SUPABASE_SERVICE_ROLE_KEY chi duoc dung o server, khong bao gio dua vao frontend.
-- Ban nay chua co payment online, SMS, Zalo notification tu dong.
-- Text UI dang de don gian, ban co the sua trong cac file app/page.tsx, app/login/page.tsx, app/dashboard/*.
+Chạy thêm file này trong Supabase SQL Editor:
+
+```text
+db/patch_v3_week_attendance_realtime.sql
+```
+
+Nếu không chạy patch, code mới vẫn chạy giao diện nhưng database cũ chưa có đủ rule mới.
+
+## Lưu ý
+
+- `SUPABASE_SERVICE_ROLE_KEY` chỉ được dùng ở server.
+- Không đưa `.env.local` lên GitHub public.
+- Bản này chưa có thanh toán online, SMS tự động hoặc Zalo notification tự động.

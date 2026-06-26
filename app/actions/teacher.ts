@@ -14,8 +14,9 @@ export async function createSlot(formData: FormData) {
   const capacity = Number(formData.get("capacity") || 1);
   const note = String(formData.get("note") || "").trim();
 
-  if (capacity < 1) throw new Error("Capacity must be at least 1");
-  if (new Date(endsAt) <= new Date(startsAt)) throw new Error("End time must be after start time");
+  if (capacity < 1) throw new Error("Số học viên tối đa phải lớn hơn 0");
+  if (new Date(startsAt) <= new Date()) throw new Error("Không thể tạo lớp trong quá khứ");
+  if (new Date(endsAt) <= new Date(startsAt)) throw new Error("Giờ kết thúc phải sau giờ bắt đầu");
 
   const { error } = await supabase.from("teacher_slots").insert({
     teacher_id: teacherId,
@@ -28,6 +29,7 @@ export async function createSlot(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard/teacher");
   revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/student");
 }
 
 export async function cancelSlot(formData: FormData) {
@@ -53,4 +55,5 @@ export async function markAttendance(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard/teacher");
   revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/student");
 }

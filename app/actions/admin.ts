@@ -16,8 +16,19 @@ function cleanPhone(phone: string) {
 
 function validateRole(role: string): asserts role is UserRole {
   if (!["admin", "teacher", "student"].includes(role)) {
-    throw new Error("Invalid role");
+    throw new Error("Quyền người dùng không hợp lệ");
   }
+}
+
+function friendlyAdminError(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("already") && normalized.includes("email")) {
+    return "Email này đã tồn tại. Nếu bạn vừa xóa user trong Supabase, hãy kiểm tra lại danh sách Auth Users hoặc dùng email khác để test.";
+  }
+  if (normalized.includes("rate limit")) {
+    return "Supabase đang giới hạn gửi email. Hãy dùng Tạo tài khoản trực tiếp hoặc cấu hình SMTP riêng.";
+  }
+  return message;
 }
 
 async function upsertProfile(params: {
@@ -50,8 +61,6 @@ async function upsertProfile(params: {
   }
 }
 
-// Default MVP flow: create the account directly, without sending Supabase's invite email.
-// This avoids Supabase built-in email rate limits while you are testing.
 export async function createUserByAdmin(formData: FormData) {
   await requireRole(["admin"]);
   const admin = createAdminClient();
@@ -63,9 +72,9 @@ export async function createUserByAdmin(formData: FormData) {
   const password = String(formData.get("password") || "");
 
   if (!email || !fullName || !phone || !password) {
-    throw new Error("Missing required fields");
+    throw new Error("Vui lòng nhập đầy đủ họ tên, email, số điện thoại và mật khẩu ban đầu");
   }
-  if (password.length < 8) throw new Error("Password must have at least 8 characters");
+  if (password.length < 8) throw new Error("Mật khẩu cần có ít nhất 8 ký tự");
   validateRole(role);
 
   const { data, error } = await admin.auth.admin.createUser({
@@ -75,10 +84,10 @@ export async function createUserByAdmin(formData: FormData) {
     user_metadata: { full_name: fullName, role, phone },
   });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(friendlyAdminError(error.message));
 
   const userId = data.user?.id;
-  if (!userId) throw new Error("User was not created");
+  if (!userId) throw new Error("Không tạo được tài khoản");
 
   await upsertProfile({ id: userId, email, fullName, phone, role });
 
@@ -86,7 +95,6 @@ export async function createUserByAdmin(formData: FormData) {
   redirect("/dashboard/admin?created=1");
 }
 
-// Optional flow: send Supabase invite email. This can hit rate limits on free/default email settings.
 export async function inviteUser(formData: FormData) {
   await requireRole(["admin"]);
   const admin = createAdminClient();
@@ -96,7 +104,7 @@ export async function inviteUser(formData: FormData) {
   const role = String(formData.get("role") || "student") as UserRole;
   const phone = cleanPhone(String(formData.get("phone") || ""));
 
-  if (!email || !fullName || !phone) throw new Error("Missing required fields");
+  if (!email || !fullName || !phone) throw new Error("Vui lòng nhập đầy đủ họ tên, email và số điện thoại");
   validateRole(role);
 
   const redirectTo = `${getSiteUrl()}/auth/callback?next=/update-password`;
@@ -106,12 +114,7 @@ export async function inviteUser(formData: FormData) {
     data: { full_name: fullName, role, phone },
   });
 
-  if (error) {
-    const message = error.message.toLowerCase().includes("rate limit")
-      ? "Supabase email rate limit exceeded. Use Create user instead, or configure custom SMTP in Supabase."
-      : error.message;
-    throw new Error(message);
-  }
+  if (error) throw new Error(friendlyAdminError(error.message));
 
   const userId = data.user?.id;
   if (userId) {
@@ -128,7 +131,7 @@ export async function updateUserRole(formData: FormData) {
 
   const id = String(formData.get("id") || "");
   const role = String(formData.get("role") || "student") as UserRole;
-  if (!id) throw new Error("Missing user id");
+  if (!id) throw new Error("Thiếu user id");
   validateRole(role);
 
   const { error } = await admin.from("profiles").update({ role }).eq("id", id);
@@ -153,7 +156,7 @@ export async function updateUserContact(formData: FormData) {
   const fullName = String(formData.get("full_name") || "").trim();
   const phone = cleanPhone(String(formData.get("phone") || ""));
 
-  if (!id || !fullName || !phone) throw new Error("Missing required fields");
+  if (!id || !fullName || !phone) throw new Error("Vui lòng nhập đủ họ tên và số điện thoại");
 
   const { error } = await admin.from("profiles").update({
     full_name: fullName,
@@ -174,8 +177,8 @@ export async function updateMembership(formData: FormData) {
   const expiresOnRaw = String(formData.get("expires_on") || "").trim();
   const notes = String(formData.get("notes") || "").trim();
 
-  if (!studentId) throw new Error("Missing student");
-  if (totalSessions < 0 || remainingSessions < 0) throw new Error("Invalid session count");
+  if (!studentId) throw new Error("Thiếu học viên");
+  if (totalSessions < 0 || remainingSessions < 0) throw new Error("Số buổi không hợp lệ");
 
   const { error } = await admin.from("student_memberships").upsert({
     student_id: studentId,

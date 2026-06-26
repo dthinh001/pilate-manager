@@ -24,7 +24,7 @@ export async function getCurrentProfile() {
 export async function requireUser() {
   const current = await getCurrentProfile();
   if (!current) redirect("/login");
-  if (!current.profile.active) redirect("/login?error=inactive");
+  if (!current.profile.active) redirect("/login?error=T%C3%A0i%20kho%E1%BA%A3n%20%C4%91ang%20b%E1%BB%8B%20kh%C3%B3a");
   return current;
 }
 

@@ -1,109 +1,136 @@
 # Pilates Booking MVP
 
-A small Next.js + Supabase MVP for a Pilates studio.
+Bản MVP Next.js + Supabase cho website đặt lịch phòng tập Pilates.
 
-## Features included
+## Chức năng chính
 
-- Public landing page with studio images and a trial-class Zalo CTA.
-- Email/password login.
-- Three roles: admin, teacher, student.
-- Admin invites users and assigns roles.
-- Admin manages student session balance manually.
-- Teachers create flexible class slots with custom start/end time and capacity.
-- Students book, cancel, and reschedule classes.
-- Teachers mark attendance: completed or absent.
-- Admin sees users, schedules, and booking history.
-- Supabase RLS policies and RPC functions for safe booking rules.
+- Trang chủ tiếng Việt, có nút đăng ký tập thử qua Zalo.
+- Đăng nhập bằng email và mật khẩu.
+- 3 quyền: quản trị viên, giáo viên, học viên.
+- Admin tạo tài khoản trực tiếp, nhập email, số điện thoại, mật khẩu ban đầu và quyền.
+- Admin quản lý số buổi tập còn lại của học viên.
+- Giáo viên tạo lịch dạy linh hoạt theo giờ bắt đầu, giờ kết thúc và số học viên tối đa.
+- Học viên xem lịch đã đặt và đặt lớp còn chỗ trong tuần hiện tại, tính từ thứ 2 đến chủ nhật.
+- Học viên đổi lịch theo cách đơn giản: hủy lịch cũ rồi đặt lịch mới.
+- Giáo viên chỉ điểm danh được sau khi đã đến giờ học.
+- Giáo viên và admin có thể sửa lại điểm danh sau giờ học nếu bấm nhầm.
+- Dashboard tự refresh bằng Supabase Realtime, kèm fallback refresh định kỳ 30 giây.
 
-## What is intentionally not included in v1
+## Chưa làm trong v1
 
-- Online payments.
-- SMS or Zalo automated reminders.
-- Mobile app.
-- Complex membership packages.
+- Thanh toán online.
+- SMS / Zalo notification tự động.
+- App mobile.
+- Gói membership phức tạp.
 
-## Setup
+## Cài đặt lần đầu
 
-### 1. Create a Supabase project
+### 1. Tạo Supabase project
 
-Create a project at Supabase, then open SQL Editor and run:
+Tạo project trên Supabase, sau đó vào SQL Editor và chạy toàn bộ file:
 
-```sql
--- paste db/schema.sql here
+```text
+db/schema.sql
 ```
 
-### 2. Configure Auth redirects
+### 2. Cấu hình Auth Redirect
 
-In Supabase Dashboard > Authentication > URL Configuration:
+Trong Supabase Dashboard:
 
-- Site URL: `http://localhost:3000` for local dev.
-- Redirect URL: `http://localhost:3000/auth/callback`.
-- Add your deployed domain callback later, for example: `https://your-domain.com/auth/callback`.
-
-### 3. Create `.env.local`
-
-Copy `.env.example` to `.env.local` and fill the values.
-
-Important: `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never expose it to browser code.
-
-### 4. Bootstrap the first admin
-
-Because public sign-up is disabled in this app, create the first admin from Supabase Dashboard:
-
-1. Go to Authentication > Users.
-2. Add a user with your admin email.
-3. Run this SQL:
-
-```sql
-update public.profiles
-set role = 'admin', full_name = 'Studio Admin'
-where email = 'your-admin-email@example.com';
+```text
+Authentication -> URL Configuration
 ```
 
-Then login at `/login`.
+Khi chạy local:
 
-### 5. Run locally
+```text
+Site URL: http://localhost:3000
+Redirect URL: http://localhost:3000/auth/callback
+Redirect URL: http://localhost:3000/update-password
+```
+
+Khi deploy thật thì thêm domain thật, ví dụ:
+
+```text
+https://domain-cua-ban.com/auth/callback
+https://domain-cua-ban.com/update-password
+```
+
+### 3. Tạo `.env.local`
+
+Copy `.env.example` thành `.env.local` rồi điền key Supabase.
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_ZALO_URL=https://zalo.me/84xxxxxxxxx
+NEXT_PUBLIC_STUDIO_TIME_ZONE=Asia/Ho_Chi_Minh
+STUDIO_UTC_OFFSET=+07:00
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` chỉ dùng ở server. Không đưa key này lên frontend hoặc GitHub public.
+
+### 4. Tạo admin đầu tiên
+
+Vì app không cho đăng ký công khai, admin đầu tiên cần tạo trong Supabase:
+
+```text
+Authentication -> Users -> Add user
+```
+
+Sau đó chạy SQL, đổi email bên dưới thành email của bạn:
+
+```sql
+insert into public.profiles (id, email, full_name, role, active)
+select id, email, 'Studio Admin', 'admin', true
+from auth.users
+where email = 'email-admin-cua-ban@example.com'
+on conflict (id)
+do update set
+  role = 'admin',
+  full_name = 'Studio Admin',
+  active = true;
+```
+
+### 5. Chạy local
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Mở:
 
-## User flow
+```text
+http://localhost:3000
+```
 
-### Admin
+## Nếu bạn đã chạy bản cũ
 
-- Invite teacher/student by email.
-- Set role: admin/teacher/student.
-- Update student total and remaining sessions.
-- View all classes and booking history.
+Nếu database Supabase đã tạo từ bản cũ, chạy thêm file patch này trong SQL Editor:
 
-### Teacher
+```text
+db/patch_v3_week_attendance_realtime.sql
+```
 
-- Create a class slot using any start/end time.
-- Set capacity per class.
-- See enrolled students.
-- Cancel class.
-- Mark students completed or absent.
+Patch này sẽ:
 
-### Student
+- Đảm bảo bảng `profiles` có cột `phone`.
+- Chặn học viên đặt lịch ngoài tuần hiện tại.
+- Chặn giáo viên điểm danh trước giờ học.
+- Cho phép sửa lại điểm danh sau khi đã đến giờ học.
+- Bật Supabase Realtime cho bảng `teacher_slots` và `bookings`.
 
-- See available class slots.
-- Book a class if remaining sessions > 0.
-- Cancel a booking.
-- Reschedule by choosing another available slot.
-- See weekly schedule/history.
+## Quy tắc booking
 
-## Booking rules
+- Đặt lịch trừ 1 buổi ngay lập tức.
+- Hủy trước hạn cho phép sẽ hoàn lại 1 buổi.
+- Hủy quá sát giờ thì không hoàn buổi.
+- Giáo viên/admin hủy lớp thì hoàn buổi cho toàn bộ học viên đã đặt.
+- Học viên không được đặt 2 lớp trùng giờ.
+- Lớp không được vượt quá số học viên tối đa.
+- Học viên chỉ đặt được lớp trong tuần hiện tại, từ thứ 2 đến chủ nhật.
 
-- Booking consumes 1 remaining session immediately.
-- Cancel before the studio cancellation window refunds 1 session.
-- Late cancel does not refund the session.
-- Reschedule is allowed only before the cancellation window and does not consume an extra session.
-- Teacher/admin class cancellation refunds all booked students.
-- A student cannot book two overlapping classes.
-- A class cannot exceed its capacity.
-
-Default cancellation window is 6 hours. You can change it in `studio_settings`.
+Mặc định hạn hủy lịch là 6 tiếng trước giờ học. Có thể sửa trong bảng `studio_settings`.

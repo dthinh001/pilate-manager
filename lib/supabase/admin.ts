@@ -5,7 +5,7 @@ export function createAdminClient() {
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceRole) {
-    throw new Error("Missing Supabase admin environment variables.");
+    throw new Error("Thiếu biến môi trường Supabase admin.");
   }
 
   return createClient(url, serviceRole, {

@@ -18,28 +18,29 @@ export default async function LoginPage(props: { searchParams?: Promise<Record<s
     <main className="container">
       <div className="grid two">
         <section className="card">
-          <h1>Login</h1>
-          <p className="muted">Use the email account created by the studio admin.</p>
+          <h1>Đăng nhập</h1>
+          <p className="muted">Dùng email do admin phòng tập cấp cho bạn.</p>
           {error ? <p className="error">{error}</p> : null}
           <form className="form" action={signIn}>
             <label>
               Email
-              <input name="email" type="email" required placeholder="you@example.com" />
+              <input name="email" type="email" required placeholder="ban@example.com" />
             </label>
             <label>
-              Password
-              <input name="password" type="password" required placeholder="Your password" />
+              Mật khẩu
+              <input name="password" type="password" required placeholder="Nhập mật khẩu" />
             </label>
-            <button className="btn" type="submit">Login</button>
+            <button className="btn" type="submit">Đăng nhập</button>
           </form>
           <p className="muted" style={{ marginTop: 12 }}>
-            <Link href="/forgot-password">Forgot password?</Link>
+            <Link href="/forgot-password">Quên mật khẩu?</Link>
           </p>
         </section>
         <section className="card">
-          <h2>No public sign up</h2>
+          <h2>Không mở đăng ký công khai</h2>
           <p className="muted">
-            This MVP is private. Admin creates accounts for teachers and students, then assigns a role.
+            Đây là hệ thống nội bộ của phòng tập. Admin sẽ tạo tài khoản cho giáo viên và học viên,
+            sau đó gán đúng quyền sử dụng.
           </p>
         </section>
       </div>

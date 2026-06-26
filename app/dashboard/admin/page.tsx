@@ -1,9 +1,18 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { formatDateTime, formatTimeRange, nowIso } from "@/lib/time";
+import { activeLabel, bookingStatusLabel, roleLabel, slotStatusLabel } from "@/lib/labels";
+import { formatDateTime, formatTimeRange, hasClassStarted, nowIso } from "@/lib/time";
 import { createUserByAdmin, inviteUser, setUserActive, updateMembership, updateUserContact, updateUserRole } from "@/app/actions/admin";
+import { markAttendance } from "@/app/actions/teacher";
+import { RealtimeRefresher } from "@/components/realtime-refresher";
 
 type AnyRow = Record<string, any>;
+
+function bookingBadgeClass(status: string) {
+  if (status === "completed") return "badge green";
+  if (status === "absent" || status === "cancelled") return "badge red";
+  return "badge";
+}
 
 export default async function AdminDashboardPage(props: { searchParams?: Promise<Record<string, string>> }) {
   const searchParams = props.searchParams ? await props.searchParams : {};
@@ -14,12 +23,12 @@ export default async function AdminDashboardPage(props: { searchParams?: Promise
     supabase.from("student_memberships").select("*"),
     supabase
       .from("teacher_slots")
-      .select("*, teacher:profiles!teacher_slots_teacher_id_fkey(full_name,email), bookings(id,status, student:profiles!bookings_student_id_fkey(full_name,email))")
+      .select("*, teacher:profiles!teacher_slots_teacher_id_fkey(full_name,email,phone), bookings(id,status, student:profiles!bookings_student_id_fkey(full_name,email,phone))")
       .gte("starts_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       .order("starts_at", { ascending: true }),
     supabase
       .from("bookings")
-      .select("*, student:profiles!bookings_student_id_fkey(full_name,email), slot:teacher_slots!bookings_slot_id_fkey(starts_at,ends_at, teacher:profiles!teacher_slots_teacher_id_fkey(full_name,email))")
+      .select("*, student:profiles!bookings_student_id_fkey(full_name,email,phone), slot:teacher_slots!bookings_slot_id_fkey(starts_at,ends_at, teacher:profiles!teacher_slots_teacher_id_fkey(full_name,email,phone))")
       .order("created_at", { ascending: false })
       .limit(80),
   ]);
@@ -28,71 +37,72 @@ export default async function AdminDashboardPage(props: { searchParams?: Promise
 
   return (
     <main className="container">
+      <RealtimeRefresher />
       <div className="inline" style={{ justifyContent: "space-between" }}>
         <div>
-          <h1>Admin dashboard</h1>
-          <p className="muted">Manage users, session balance, class schedule, and attendance history.</p>
-          {searchParams?.created === "1" ? <p className="success">User created. Share the email and initial password with them, then ask them to change password later.</p> : null}
-          {searchParams?.invited === "1" ? <p className="success">Invite email sent.</p> : null}
+          <h1>Trang quản trị</h1>
+          <p className="muted">Quản lý tài khoản, số buổi tập, lịch lớp và lịch sử điểm danh.</p>
+          {searchParams?.created === "1" ? <p className="success">Đã tạo tài khoản. Gửi email và mật khẩu ban đầu cho người dùng, sau đó nhắc họ đổi mật khẩu.</p> : null}
+          {searchParams?.invited === "1" ? <p className="success">Đã gửi email mời tài khoản.</p> : null}
         </div>
-        <Link className="btn secondary" href="/logout">Logout</Link>
+        <Link className="btn secondary" href="/logout">Đăng xuất</Link>
       </div>
 
       <div className="grid two">
         <section className="card">
-          <h2>Create user</h2>
-          <p className="muted">Default MVP flow: create the account directly, no Supabase email is sent, so it avoids email rate limits.</p>
+          <h2>Tạo tài khoản</h2>
+          <p className="muted">Luồng MVP khuyến nghị: admin tạo tài khoản trực tiếp để tránh giới hạn gửi email của Supabase khi test.</p>
           <form className="form" action={createUserByAdmin}>
-            <label>Full name<input name="full_name" required /></label>
+            <label>Họ tên<input name="full_name" required /></label>
             <label>Email<input name="email" type="email" required /></label>
-            <label>Phone<input name="phone" type="tel" required placeholder="0901234567" /></label>
-            <label>Initial password<input name="password" type="text" required minLength={8} placeholder="At least 8 characters" /></label>
+            <label>Số điện thoại<input name="phone" type="tel" required placeholder="0901234567" /></label>
+            <label>Mật khẩu ban đầu<input name="password" type="text" required minLength={8} placeholder="Ít nhất 8 ký tự" /></label>
             <label>
-              Role
+              Quyền
               <select name="role" defaultValue="student">
-                <option value="student">Student</option>
-                <option value="teacher">Teacher</option>
-                <option value="admin">Admin</option>
+                <option value="student">Học viên</option>
+                <option value="teacher">Giáo viên</option>
+                <option value="admin">Quản trị viên</option>
               </select>
             </label>
-            <button className="btn" type="submit">Create user</button>
+            <button className="btn" type="submit">Tạo tài khoản</button>
           </form>
 
           <details style={{ marginTop: 16 }}>
-            <summary className="muted">Optional: send Supabase invite email instead</summary>
+            <summary className="muted">Tùy chọn: gửi email mời qua Supabase</summary>
             <form className="form" action={inviteUser} style={{ marginTop: 12 }}>
-              <label>Full name<input name="full_name" required /></label>
+              <label>Họ tên<input name="full_name" required /></label>
               <label>Email<input name="email" type="email" required /></label>
-              <label>Phone<input name="phone" type="tel" required placeholder="0901234567" /></label>
+              <label>Số điện thoại<input name="phone" type="tel" required placeholder="0901234567" /></label>
               <label>
-                Role
+                Quyền
                 <select name="role" defaultValue="student">
-                  <option value="student">Student</option>
-                  <option value="teacher">Teacher</option>
-                  <option value="admin">Admin</option>
+                  <option value="student">Học viên</option>
+                  <option value="teacher">Giáo viên</option>
+                  <option value="admin">Quản trị viên</option>
                 </select>
               </label>
-              <button className="btn secondary" type="submit">Send invite email</button>
+              <button className="btn secondary" type="submit">Gửi email mời</button>
             </form>
           </details>
         </section>
 
         <section className="card">
-          <h2>Today</h2>
-          <p className="muted">Current time: {formatDateTime(nowIso())}</p>
+          <h2>Tổng quan</h2>
+          <p className="muted">Thời gian hiện tại: {formatDateTime(nowIso())}</p>
           <div className="grid three">
-            <div><div className="kpi">{profiles?.length || 0}</div><p className="muted">Users</p></div>
-            <div><div className="kpi">{slots?.length || 0}</div><p className="muted">Recent slots</p></div>
-            <div><div className="kpi">{history?.length || 0}</div><p className="muted">Recent bookings</p></div>
+            <div><div className="kpi">{profiles?.length || 0}</div><p className="muted">Người dùng</p></div>
+            <div><div className="kpi">{slots?.length || 0}</div><p className="muted">Lịch gần đây</p></div>
+            <div><div className="kpi">{history?.length || 0}</div><p className="muted">Lượt đặt gần đây</p></div>
           </div>
         </section>
       </div>
 
       <section className="card">
-        <h2>Users and roles</h2>
+        <h2>Người dùng và phân quyền</h2>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Thông tin</th><th>Email</th><th>SĐT</th><th>Quyền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
             <tbody>
               {(profiles || []).map((p: AnyRow) => (
                 <tr key={p.id}>
@@ -100,28 +110,28 @@ export default async function AdminDashboardPage(props: { searchParams?: Promise
                     <form className="form" action={updateUserContact}>
                       <input type="hidden" name="id" value={p.id} />
                       <input name="full_name" defaultValue={p.full_name || ""} required />
-                      <input name="phone" type="tel" defaultValue={p.phone || ""} required placeholder="Phone" />
-                      <button className="btn small secondary">Save contact</button>
+                      <input name="phone" type="tel" defaultValue={p.phone || ""} required placeholder="Số điện thoại" />
+                      <button className="btn small secondary">Lưu thông tin</button>
                     </form>
                   </td>
                   <td>{p.email}</td>
                   <td>{p.phone || "-"}</td>
-                  <td><span className="badge">{p.role}</span></td>
-                  <td>{p.active ? <span className="badge green">active</span> : <span className="badge red">inactive</span>}</td>
+                  <td><span className="badge">{roleLabel(p.role)}</span></td>
+                  <td>{p.active ? <span className="badge green">{activeLabel(p.active)}</span> : <span className="badge red">{activeLabel(p.active)}</span>}</td>
                   <td className="inline">
                     <form className="inline" action={updateUserRole}>
                       <input type="hidden" name="id" value={p.id} />
                       <select name="role" defaultValue={p.role}>
-                        <option value="student">Student</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="admin">Admin</option>
+                        <option value="student">Học viên</option>
+                        <option value="teacher">Giáo viên</option>
+                        <option value="admin">Quản trị viên</option>
                       </select>
-                      <button className="btn small secondary">Save role</button>
+                      <button className="btn small secondary">Lưu quyền</button>
                     </form>
                     <form action={setUserActive}>
                       <input type="hidden" name="id" value={p.id} />
                       <input type="hidden" name="active" value={p.active ? "false" : "true"} />
-                      <button className="btn small secondary">{p.active ? "Deactivate" : "Activate"}</button>
+                      <button className="btn small secondary">{p.active ? "Khóa" : "Mở khóa"}</button>
                     </form>
                   </td>
                 </tr>
@@ -132,28 +142,28 @@ export default async function AdminDashboardPage(props: { searchParams?: Promise
       </section>
 
       <section className="card">
-        <h2>Student session balance</h2>
+        <h2>Số buổi tập của học viên</h2>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Student</th><th>Total</th><th>Remaining</th><th>Expires</th><th>Notes</th><th>Action</th></tr></thead>
+            <thead><tr><th>Học viên</th><th>Tổng / Còn lại / Hạn gói / Ghi chú</th></tr></thead>
             <tbody>
               {students.map((student: AnyRow) => {
                 const member = (memberships || []).find((m: AnyRow) => m.student_id === student.id) || {};
                 return (
                   <tr key={student.id}>
-                    <td>{student.full_name}<br /><span className="muted">{student.email}</span><br /><span className="muted">{student.phone || "No phone"}</span></td>
-                    <td colSpan={5}>
+                    <td>{student.full_name}<br /><span className="muted">{student.email}</span><br /><span className="muted">{student.phone || "Chưa có SĐT"}</span></td>
+                    <td>
                       <form className="form" action={updateMembership}>
                         <input type="hidden" name="student_id" value={student.id} />
                         <div className="form-row">
-                          <label>Total<input name="total_sessions" type="number" min="0" defaultValue={member.total_sessions || 0} /></label>
-                          <label>Remaining<input name="remaining_sessions" type="number" min="0" defaultValue={member.remaining_sessions || 0} /></label>
+                          <label>Tổng buổi<input name="total_sessions" type="number" min="0" defaultValue={member.total_sessions || 0} /></label>
+                          <label>Còn lại<input name="remaining_sessions" type="number" min="0" defaultValue={member.remaining_sessions || 0} /></label>
                         </div>
                         <div className="form-row">
-                          <label>Expires on<input name="expires_on" type="date" defaultValue={member.expires_on || ""} /></label>
-                          <label>Notes<input name="notes" defaultValue={member.notes || ""} /></label>
+                          <label>Hạn gói<input name="expires_on" type="date" defaultValue={member.expires_on || ""} /></label>
+                          <label>Ghi chú<input name="notes" defaultValue={member.notes || ""} /></label>
                         </div>
-                        <button className="btn small">Save balance</button>
+                        <button className="btn small">Lưu số buổi</button>
                       </form>
                     </td>
                   </tr>
@@ -165,37 +175,60 @@ export default async function AdminDashboardPage(props: { searchParams?: Promise
       </section>
 
       <section className="card">
-        <h2>Schedule overview</h2>
+        <h2>Tổng quan lịch lớp</h2>
+        {(slots || []).length === 0 ? <p className="muted">Chưa có lịch lớp gần đây.</p> : null}
         {(slots || []).map((slot: AnyRow) => {
-          const booked = (slot.bookings || []).filter((b: AnyRow) => b.status === "booked");
+          const relevantBookings = (slot.bookings || []).filter((b: AnyRow) => b.status !== "cancelled");
+          const holdingSeats = relevantBookings.length;
           return (
             <div className="slot" key={slot.id}>
               <div className="inline" style={{ justifyContent: "space-between" }}>
                 <strong>{formatTimeRange(slot.starts_at, slot.ends_at)}</strong>
-                <span className={slot.status === "open" ? "badge green" : "badge red"}>{slot.status}</span>
+                <span className={slot.status === "open" ? "badge green" : "badge red"}>{slotStatusLabel(slot.status)}</span>
               </div>
-              <p className="muted">Teacher: {slot.teacher?.full_name || slot.teacher?.email || "-"} | Capacity: {booked.length}/{slot.capacity}</p>
-              <p>{booked.length ? booked.map((b: AnyRow) => b.student?.full_name || b.student?.email).join(", ") : "No students yet"}</p>
+              <p className="muted">Giáo viên: {slot.teacher?.full_name || slot.teacher?.email || "-"} | Số lượng đang giữ chỗ: {holdingSeats}/{slot.capacity}</p>
+              <p>{relevantBookings.length ? relevantBookings.map((b: AnyRow) => `${b.student?.full_name || b.student?.email} (${bookingStatusLabel(b.status)})`).join(", ") : "Chưa có học viên"}</p>
             </div>
           );
         })}
       </section>
 
       <section className="card">
-        <h2>Attendance and booking history</h2>
+        <h2>Lịch sử đặt lịch và điểm danh</h2>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Class</th><th>Teacher</th><th>Student</th><th>Status</th><th>Booked at</th></tr></thead>
+            <thead><tr><th>Buổi tập</th><th>Giáo viên</th><th>Học viên</th><th>Trạng thái</th><th>Đặt lúc</th><th>Sửa điểm danh</th></tr></thead>
             <tbody>
-              {(history || []).map((b: AnyRow) => (
-                <tr key={b.id}>
-                  <td>{b.slot ? formatTimeRange(b.slot.starts_at, b.slot.ends_at) : "-"}</td>
-                  <td>{b.slot?.teacher?.full_name || b.slot?.teacher?.email || "-"}</td>
-                  <td>{b.student?.full_name || b.student?.email || "-"}</td>
-                  <td><span className="badge">{b.status}</span></td>
-                  <td>{formatDateTime(b.booked_at || b.created_at)}</td>
-                </tr>
-              ))}
+              {(history || []).map((booking: AnyRow) => {
+                const canEditAttendance = booking.status !== "cancelled" && booking.slot?.starts_at && hasClassStarted(booking.slot.starts_at);
+                return (
+                  <tr key={booking.id}>
+                    <td>{booking.slot ? formatTimeRange(booking.slot.starts_at, booking.slot.ends_at) : "-"}</td>
+                    <td>{booking.slot?.teacher?.full_name || booking.slot?.teacher?.email || "-"}</td>
+                    <td>{booking.student?.full_name || booking.student?.email || "-"}<br /><span className="muted">{booking.student?.phone || ""}</span></td>
+                    <td><span className={bookingBadgeClass(booking.status)}>{bookingStatusLabel(booking.status)}</span></td>
+                    <td>{formatDateTime(booking.booked_at || booking.created_at)}</td>
+                    <td>
+                      {canEditAttendance ? (
+                        <div className="inline">
+                          <form action={markAttendance}>
+                            <input type="hidden" name="booking_id" value={booking.id} />
+                            <input type="hidden" name="status" value="completed" />
+                            <button className="btn small secondary">Có mặt</button>
+                          </form>
+                          <form action={markAttendance}>
+                            <input type="hidden" name="booking_id" value={booking.id} />
+                            <input type="hidden" name="status" value="absent" />
+                            <button className="btn small secondary">Vắng</button>
+                          </form>
+                        </div>
+                      ) : (
+                        <span className="muted">Chưa đến giờ / đã hủy</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

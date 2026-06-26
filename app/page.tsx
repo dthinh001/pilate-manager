@@ -14,25 +14,25 @@ export default async function HomePage() {
     <main className="container">
       <section className="hero">
         <div>
-          <span className="badge">Pilates booking MVP</span>
-          <h1>Book your Pilates class with ease.</h1>
+          <span className="badge">Đặt lịch Pilates</span>
+          <h1>Đặt lịch tập Pilates dễ dàng.</h1>
           <p>
-            A simple studio website for students to book classes, teachers to create schedules,
-            and admins to manage sessions and attendance.
+            Website đơn giản cho phòng tập: học viên đặt lịch, giáo viên tạo lịch dạy,
+            admin quản lý tài khoản, số buổi và lịch sử điểm danh.
           </p>
           <div className="actions">
             <a href={zaloUrl} className="btn" target="_blank" rel="noreferrer">
-              Register trial class via Zalo
+              Đăng ký tập thử qua Zalo
             </a>
             {user ? (
-              <Link href="/dashboard" className="btn secondary">Dashboard</Link>
+              <Link href="/dashboard" className="btn secondary">Vào bảng điều khiển</Link>
             ) : (
-              <Link href="/login" className="btn secondary">Login</Link>
+              <Link href="/login" className="btn secondary">Đăng nhập</Link>
             )}
           </div>
         </div>
 
-        <div className="hero-grid" aria-label="Studio images placeholder">
+        <div className="hero-grid" aria-label="Ảnh minh họa phòng tập">
           <div className="image-card" />
           <div className="image-card" />
           <div className="image-card" />

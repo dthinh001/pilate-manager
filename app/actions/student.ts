@@ -9,6 +9,8 @@ export async function bookSlot(formData: FormData) {
   const { error } = await supabase.rpc("book_slot", { target_slot_id: slotId });
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard/student");
+  revalidatePath("/dashboard/teacher");
+  revalidatePath("/dashboard/admin");
 }
 
 export async function cancelBooking(formData: FormData) {
@@ -17,6 +19,8 @@ export async function cancelBooking(formData: FormData) {
   const { error } = await supabase.rpc("cancel_booking", { target_booking_id: bookingId });
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard/student");
+  revalidatePath("/dashboard/teacher");
+  revalidatePath("/dashboard/admin");
 }
 
 export async function rescheduleBooking(formData: FormData) {
@@ -31,4 +35,6 @@ export async function rescheduleBooking(formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard/student");
+  revalidatePath("/dashboard/teacher");
+  revalidatePath("/dashboard/admin");
 }

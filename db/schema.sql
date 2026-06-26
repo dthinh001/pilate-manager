@@ -195,6 +195,17 @@ as $$
   select coalesce((select cancellation_limit_hours from public.studio_settings where id = true), 6);
 $$;
 
+
+create or replace function public.is_in_current_studio_week(target_time timestamptz)
+returns boolean
+language sql
+stable
+as $$
+  select date_trunc('week', target_time at time zone 'Asia/Ho_Chi_Minh')
+       = date_trunc('week', now() at time zone 'Asia/Ho_Chi_Minh');
+$$;
+
+
 -- Aggregated slot view for students. It exposes counts, not student identities.
 drop view if exists public.slot_summaries;
 create view public.slot_summaries as
@@ -341,11 +352,11 @@ declare
   v_booking_id uuid;
 begin
   if v_user is null then
-    raise exception 'Not authenticated';
+    raise exception 'Bạn cần đăng nhập';
   end if;
 
   if public.get_my_role() <> 'student' then
-    raise exception 'Only students can book classes';
+    raise exception 'Chỉ học viên mới được đặt lịch';
   end if;
 
   select * into v_slot
@@ -354,15 +365,19 @@ begin
   for update;
 
   if not found then
-    raise exception 'Class slot not found';
+    raise exception 'Không tìm thấy lớp học';
   end if;
 
   if v_slot.status <> 'open' then
-    raise exception 'Class slot is not open';
+    raise exception 'Lớp này không còn mở đặt lịch';
   end if;
 
   if v_slot.starts_at <= now() then
-    raise exception 'Cannot book a past class';
+    raise exception 'Không thể đặt lớp đã qua giờ học';
+  end if;
+
+  if not public.is_in_current_studio_week(v_slot.starts_at) then
+    raise exception 'Chỉ có thể đặt lịch trong tuần hiện tại, từ thứ 2 đến chủ nhật';
   end if;
 
   select count(*) into v_booked
@@ -370,7 +385,7 @@ begin
   where slot_id = target_slot_id and status = 'booked';
 
   if v_booked >= v_slot.capacity then
-    raise exception 'Class is full';
+    raise exception 'Lớp đã đủ chỗ';
   end if;
 
   if exists (
@@ -382,7 +397,7 @@ begin
       and s.starts_at < v_slot.ends_at
       and s.ends_at > v_slot.starts_at
   ) then
-    raise exception 'You already have another class at this time';
+    raise exception 'Bạn đã có lớp khác trùng giờ';
   end if;
 
   select remaining_sessions into v_remaining
@@ -391,7 +406,7 @@ begin
   for update;
 
   if coalesce(v_remaining, 0) <= 0 then
-    raise exception 'No remaining sessions';
+    raise exception 'Bạn đã hết số buổi tập';
   end if;
 
   insert into public.bookings(slot_id, student_id, status)
@@ -421,7 +436,7 @@ declare
   v_refund boolean := false;
 begin
   if v_user is null then
-    raise exception 'Not authenticated';
+    raise exception 'Bạn cần đăng nhập';
   end if;
 
   select * into v_booking
@@ -430,17 +445,17 @@ begin
   for update;
 
   if not found then
-    raise exception 'Booking not found';
+    raise exception 'Không tìm thấy lịch đặt';
   end if;
 
   select * into v_slot from public.teacher_slots where id = v_booking.slot_id;
 
   if v_booking.student_id <> v_user and v_slot.teacher_id <> v_user and not public.is_admin() then
-    raise exception 'Not allowed to cancel this booking';
+    raise exception 'Bạn không có quyền hủy lịch này';
   end if;
 
   if v_booking.status <> 'booked' then
-    raise exception 'Booking is not active';
+    raise exception 'Lịch đặt này không còn hoạt động';
   end if;
 
   if public.is_admin() or v_slot.teacher_id = v_user or (v_slot.starts_at - now()) >= make_interval(hours => v_cutoff) then
@@ -478,11 +493,11 @@ declare
   v_new_booking_id uuid;
 begin
   if v_user is null then
-    raise exception 'Not authenticated';
+    raise exception 'Bạn cần đăng nhập';
   end if;
 
   if public.get_my_role() <> 'student' then
-    raise exception 'Only students can reschedule classes';
+    raise exception 'Chỉ học viên mới được đổi lịch';
   end if;
 
   select * into v_old_booking
@@ -491,21 +506,21 @@ begin
   for update;
 
   if not found then
-    raise exception 'Booking not found';
+    raise exception 'Không tìm thấy lịch đặt';
   end if;
 
   if v_old_booking.student_id <> v_user then
-    raise exception 'Not your booking';
+    raise exception 'Đây không phải lịch đặt của bạn';
   end if;
 
   if v_old_booking.status <> 'booked' then
-    raise exception 'Only active bookings can be rescheduled';
+    raise exception 'Chỉ có thể đổi lịch đang hoạt động';
   end if;
 
   select * into v_old_slot from public.teacher_slots where id = v_old_booking.slot_id;
 
   if (v_old_slot.starts_at - now()) < make_interval(hours => v_cutoff) then
-    raise exception 'Too late to reschedule this booking';
+    raise exception 'Đã quá hạn đổi lịch';
   end if;
 
   select * into v_new_slot
@@ -514,11 +529,15 @@ begin
   for update;
 
   if not found then
-    raise exception 'New class slot not found';
+    raise exception 'Không tìm thấy lớp mới';
   end if;
 
   if v_new_slot.status <> 'open' or v_new_slot.starts_at <= now() then
-    raise exception 'New class slot is not available';
+    raise exception 'Lớp mới không còn khả dụng';
+  end if;
+
+  if not public.is_in_current_studio_week(v_new_slot.starts_at) then
+    raise exception 'Chỉ có thể đổi sang lớp trong tuần hiện tại, từ thứ 2 đến chủ nhật';
   end if;
 
   select count(*) into v_booked
@@ -526,7 +545,7 @@ begin
   where slot_id = new_slot_id and status = 'booked';
 
   if v_booked >= v_new_slot.capacity then
-    raise exception 'New class is full';
+    raise exception 'Lớp mới đã đủ chỗ';
   end if;
 
   if exists (
@@ -539,7 +558,7 @@ begin
       and s.starts_at < v_new_slot.ends_at
       and s.ends_at > v_new_slot.starts_at
   ) then
-    raise exception 'You already have another class at this time';
+    raise exception 'Bạn đã có lớp khác trùng giờ';
   end if;
 
   update public.bookings
@@ -568,7 +587,7 @@ declare
   v_slot public.teacher_slots%rowtype;
 begin
   if v_user is null then
-    raise exception 'Not authenticated';
+    raise exception 'Bạn cần đăng nhập';
   end if;
 
   select * into v_slot
@@ -577,11 +596,11 @@ begin
   for update;
 
   if not found then
-    raise exception 'Class slot not found';
+    raise exception 'Không tìm thấy lớp học';
   end if;
 
   if v_slot.teacher_id <> v_user and not public.is_admin() then
-    raise exception 'Not allowed to cancel this class';
+    raise exception 'Bạn không có quyền hủy lớp này';
   end if;
 
   update public.teacher_slots
@@ -618,11 +637,11 @@ declare
   v_slot public.teacher_slots%rowtype;
 begin
   if v_user is null then
-    raise exception 'Not authenticated';
+    raise exception 'Bạn cần đăng nhập';
   end if;
 
   if new_status not in ('completed', 'absent') then
-    raise exception 'Attendance status must be completed or absent';
+    raise exception 'Trạng thái điểm danh phải là có mặt hoặc vắng';
   end if;
 
   select * into v_booking
@@ -631,17 +650,21 @@ begin
   for update;
 
   if not found then
-    raise exception 'Booking not found';
+    raise exception 'Không tìm thấy booking';
   end if;
 
   select * into v_slot from public.teacher_slots where id = v_booking.slot_id;
 
   if v_slot.teacher_id <> v_user and not public.is_admin() then
-    raise exception 'Not allowed to mark this attendance';
+    raise exception 'Bạn không có quyền điểm danh booking này';
   end if;
 
   if v_booking.status = 'cancelled' then
-    raise exception 'Cannot mark a cancelled booking';
+    raise exception 'Không thể điểm danh booking đã hủy';
+  end if;
+
+  if v_slot.starts_at > now() then
+    raise exception 'Chỉ được điểm danh sau khi đến giờ học';
   end if;
 
   update public.bookings
@@ -657,3 +680,21 @@ grant execute on function public.cancel_booking(uuid) to authenticated;
 grant execute on function public.reschedule_booking(uuid, uuid) to authenticated;
 grant execute on function public.cancel_slot(uuid) to authenticated;
 grant execute on function public.mark_attendance(uuid, public.booking_status) to authenticated;
+
+
+-- Enable Supabase Realtime for schedule and booking changes.
+do $$
+begin
+  alter publication supabase_realtime add table public.teacher_slots;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.bookings;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;
