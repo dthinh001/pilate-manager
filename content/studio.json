@@ -1,0 +1,17 @@
+{
+  "studioName": "Morri",
+  "logo": "/studio/Morri_Logo.jpg",
+  "hero": {
+    "badge": "Đặt lịch Pilates",
+    "title": "Đặt lịch tập Pilates dễ dàng.",
+    "description": "Website đơn giản cho phòng tập: học viên đặt lịch, giáo viên tạo lịch dạy, admin quản lý tài khoản, số buổi và lịch sử điểm danh.",
+    "trialButtonText": "Đăng ký tập thử qua Zalo",
+    "dashboardButtonText": "Dashboard",
+    "loginButtonText": "Đăng nhập",
+    "images": [
+      { "src": "/studio/Morri_Short_1.jpg", "alt": "Không gian tập Pilates" },
+      { "src": "/studio/Morri_Short_2.jpg", "alt": "Giáo viên hướng dẫn Pilates" },
+      { "src": "/studio/Morri_Long.jpg", "alt": "Phòng tập Pilates" }
+    ]
+  }
+}

@@ -134,3 +134,7 @@ Patch này sẽ:
 - Học viên chỉ đặt được lớp trong tuần hiện tại, từ thứ 2 đến chủ nhật.
 
 Mặc định hạn hủy lịch là 6 tiếng trước giờ học. Có thể sửa trong bảng `studio_settings`.
+
+## v4 UI notes
+
+Homepage content is editable from `content/studio.json`. Replace homepage assets in `public/studio/` to update logo and images. The admin dashboard uses collapsible sections to avoid showing every management table at once.

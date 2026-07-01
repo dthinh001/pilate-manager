@@ -55,3 +55,38 @@ Nếu không chạy patch, code mới vẫn chạy giao diện nhưng database c
 - `SUPABASE_SERVICE_ROLE_KEY` chỉ được dùng ở server.
 - Không đưa `.env.local` lên GitHub public.
 - Bản này chưa có thanh toán online, SMS tự động hoặc Zalo notification tự động.
+
+## Tuy chinh trang chu, logo va anh
+
+Ban co the sua noi dung trang chu trong file:
+
+```text
+content/studio.json
+```
+
+Cac muc de sua nhanh:
+
+- `studioName`: ten phong tap hien tren goc trai.
+- `logo`: duong dan logo.
+- `hero.badge`: nhan nho tren tieu de.
+- `hero.title`: tieu de lon.
+- `hero.description`: mo ta ben duoi tieu de.
+- `hero.trialButtonText`: chu tren nut dang ky tap thu.
+- `hero.images`: danh sach anh tren trang chu.
+
+Anh mac dinh nam trong:
+
+```text
+public/studio/
+```
+
+Neu muon thay anh ma khong sua code, hay thay file va giu nguyen ten:
+
+```text
+logo.svg
+hero-1.svg
+hero-2.svg
+hero-3.svg
+```
+
+Neu dung file `.png` hoac `.jpg`, hay cap nhat duong dan trong `content/studio.json`.

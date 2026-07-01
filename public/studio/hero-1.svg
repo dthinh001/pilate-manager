@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700" role="img" aria-label="Không gian tập Pilates">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#f4dfcf"/><stop offset="1" stop-color="#fff7ec"/></linearGradient>
+  </defs>
+  <rect width="900" height="700" fill="url(#bg)"/>
+  <circle cx="710" cy="130" r="150" fill="#ffffff" opacity=".36"/>
+  <rect x="90" y="405" width="620" height="58" rx="29" fill="#9b6b52" opacity=".26"/>
+  <rect x="165" y="470" width="620" height="32" rx="16" fill="#704a37" opacity=".14"/>
+  <path d="M245 356c60-108 193-108 253 0" fill="none" stroke="#fff8f1" stroke-width="30" stroke-linecap="round" opacity=".9"/>
+  <circle cx="371" cy="222" r="46" fill="#fff8f1" opacity=".9"/>
+</svg>
